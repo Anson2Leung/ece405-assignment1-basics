@@ -19,6 +19,7 @@ def find_chunk_boundaries(
     file: BinaryIO,
     desired_num_chunks: int,
     split_special_tokens: list[bytes],
+    max_chunk_size: int = 64 * 1024 * 1024 # Default 64MB
 ) -> list[int]:
     """
     Chunk the file into parts that can be counted independently.
@@ -31,7 +32,9 @@ def find_chunk_boundaries(
     file_size = file.tell()
     file.seek(0)
 
-    chunk_size = file_size // desired_num_chunks
+    # Determine how many chunks
+    num_chunks = max(desired_num_chunks, (file_size // max_chunk_size) + 1)
+    chunk_size = file_size // num_chunks
     boundaries = [0]
     
     for i in range(1, desired_num_chunks):
@@ -120,7 +123,7 @@ def get_token_counts(
     # chunking
     with open(file_path, 'rb') as f:
         if special_tokens:
-            boundaries = find_chunk_boundaries(f, procs, special_tokens_bytes)
+            boundaries = find_chunk_boundaries(f, procs*2, special_tokens_bytes)
         else:
             f.seek(0, os.SEEK_END)
             boundaries = [0, f.tell()]
@@ -303,8 +306,7 @@ def save_merges(merges, file_path):
     print(f"Merges saved to {file_path}")
 
 # Test run with
-# python .\bpe_tokenizer.py ..\..\data\owt_valid.txt
-# python .\bpe_tokenizer.py ..\..\data\owt_train.txt
+# uv run python .\bpe_tokenizer.py ..\..\data\owt_valid.txt
 
 if __name__ == "__main__":
     # Arguments
@@ -316,9 +318,27 @@ if __name__ == "__main__":
         print(f"Error: File '{args.file}' not found.")
         sys.exit(1)
 
-    voc, mer = train_bpe(args.file, 10000, ['<|endoftext|>'])
-    save_vocab(voc, 'testvocab.json')
-    save_merges(mer, 'testmerge.json')
-    # save_vocab(voc, 'TinyStoriesVocab.json')
-    # save_merges(mer, 'TinyStoriesMerges.json')
+    filename = os.path.basename(args.file)
+
+    if "TinyStoriesV2-GPT4-train" in filename:
+        # uv run python .\bpe_tokenizer.py ..\..\data\TinyStoriesV2-GPT4-train.txt
+        target_vocab_size = 10000
+        print(f"TinyStories using vocab_size:{target_vocab_size}")
+        voc, mer = train_bpe(args.file, target_vocab_size, ['<|endoftext|>'])
+        save_vocab(voc, 'TinyStoriesVocab.json')
+        save_merges(mer, 'TinyStoriesMerges.json')
+    elif "owt_train" in filename:
+        # python .\bpe_tokenizer.py ..\..\data\owt_train.txt
+        target_vocab_size = 32000
+        print(f"OpenWebText using vocab_size:{target_vocab_size}")
+        voc, mer = train_bpe(args.file, target_vocab_size, ['<|endoftext|>'])
+        save_vocab(voc, 'OWTVocab.json')
+        save_merges(mer, 'OWTMerges.json')
+    else:
+        target_vocab_size = 10000 
+        print(f"Test using vocab_size:{target_vocab_size}")
+        voc, mer = train_bpe(args.file, target_vocab_size, ['<|endoftext|>'])
+        save_vocab(voc, 'testvocab.json')
+        save_merges(mer, 'testmerge.json')
+    
 
