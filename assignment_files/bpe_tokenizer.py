@@ -46,8 +46,6 @@ def find_chunk_boundaries(
             curr_pos = file.tell()
             mini_chunk = file.read(4096)
             if not mini_chunk:
-                # If we never find a special token, this boundary 
-                # effectively moves to the end of the file.
                 boundaries.append(file_size)
                 break
 
@@ -60,8 +58,6 @@ def find_chunk_boundaries(
             if found_at != -1:
                 boundaries.append(curr_pos + found_at)
                 break
-            # If not found, the while loop continues. 
-            # file.read(4096) already advanced the pointer.
                 
     return sorted(list(set(boundaries)))
 
@@ -85,13 +81,19 @@ def pre_tokenize_chunk(
         f.seek(start)
         chunk = f.read(end - start)
 
-    chunk = chunk.replace(b'\r\n', b'\n')
+    #chunk = chunk.replace(b'\r\n', b'\n')
     text = chunk.decode('utf-8', errors='replace')
-    
-    # Create pattern including the special tokens
-    # Ensure splitting on special tokens before the PAT tokens
+
     if special_tokens_bytes:
-        special_pat = '|'.join(re.escape(st.decode('utf-8', errors='replace')) for st in special_tokens_bytes)
+
+        special_strs = [st.decode('utf-8', errors='replace') for st in special_tokens_bytes]
+        # Use the longest special token first
+        special_strs.sort(key=len, reverse=True)
+        
+        # Add the special tokens to the pattern
+        special_pat = '|'.join(re.escape(s) for s in special_strs)
+        
+        # Split across special tokens
         documents = re.split(special_pat, text)
     else:
         documents = [text]
@@ -192,7 +194,7 @@ def train_bpe(
 
 
     # word_freqs = {word byte encoding: frequency}
-    # For each word create and record the amount of pairs
+    # For each word create pairs and record the amount of pairs
     for word_tuple, freq in word_freqs.items():
         for i in range(len(word_tuple) - 1):
             # forms a pair 
@@ -222,7 +224,7 @@ def train_bpe(
         #     print(f"Selected (min): {min(candidates)}")
         max_pair = max(candidates)
 
-        # Merge the two bytes/ tokens, add it to the vocab and the merge list 
+        # Merge the two bytes/ pairs, add it to the vocab and the merge list 
         new_token = max_pair[0] + max_pair[1]
         vocab[current_size] = new_token
         merges.append(max_pair)
@@ -265,7 +267,7 @@ def train_bpe(
                 pair_freqs[p] += freq
                 pair_to_words[p].add(new_word_tuple)
 
-     # Add special tokens
+    # Add special tokens
     for special in special_tokens:
         assert isinstance(special, str)
         spe_enc = special.encode('utf-8')
@@ -281,10 +283,9 @@ def train_bpe(
     print(f"Total training time: {merge_time - start_time:.2f}s")
     print(f"Total memory used: {end_mem - start_mem:.2f} MB")
     return vocab, merges
-    #TODO
 
 def save_vocab(vocab, file_path):
-    # Convert {0: b'a'} to {0: [97]} for JSON safety
+    # Convert {0: b'a'} to {0: [97]}
     serializable_vocab = {
         token_id: list(token_bytes) 
         for token_id, token_bytes in vocab.items()

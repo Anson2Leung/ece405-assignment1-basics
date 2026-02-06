@@ -560,7 +560,7 @@ def get_tokenizer(
     Returns:
         A BPE tokenizer that uses the provided vocab, merges, and special tokens.
     """
-    tokenizer = Tokenizer(vocab=vocab, merges=merge, special_tokens=special_tokens)
+    tokenizer = Tokenizer(vocab=vocab, merges=merges, special_tokens=special_tokens)
 
     return tokenizer
 
