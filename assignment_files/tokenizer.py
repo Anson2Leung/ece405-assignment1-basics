@@ -15,6 +15,7 @@ class Tokenizer:
         self.special_tokens = special_tokens or []
         # Reverse lookup for encoding {bytes, id}
         self.vocab_reversed = {v: k for k, v in vocab.items()}
+        self.merge_ranks = {pair: i for i, pair in enumerate(self.merges)}
         
         self.PAT = re.compile(r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""")
 
@@ -64,60 +65,76 @@ class Tokenizer:
         
         return cls(vocab, merges, special_tokens)
 
-    def _merge_pre_token(self, word_bytes: bytes) -> list[int]:
+    def encode(self, text: str) -> list[int]:
+        return list(self.encode_iterable([text]))
+
+    
+    def encode_iterable(self, iterable: Iterable[str]) -> Iterator[int]:
+        """
+        Processes chunks of text one by one, yielding tokens as they are found
+        to keep memory usage below the 1MB limit.
+        """
+        # print('encode_itr run')
+        for chunk in iterable:
+            if not chunk: continue
+            
+            if self.special_pat:
+                last_pos = 0
+                for match in self.special_pat.finditer(chunk):
+                    pre_text = chunk[last_pos:match.start()]
+                    if pre_text:
+                        yield from self._yield_regular_tokens(pre_text)
+                    
+                    special_token = match.group()
+                    yield self.vocab_reversed[special_token.encode('utf-8')]
+                    last_pos = match.end()
+                
+                remaining = chunk[last_pos:]
+                if remaining:
+                    yield from self._yield_regular_tokens(remaining)
+            else:
+                yield from self._yield_regular_tokens(chunk)
+
+    def _yield_regular_tokens(self, text: str) -> Iterator[int]:
+        for match in self.PAT.finditer(text):
+            chunk_bytes = match.group().encode('utf-8')
+            yield from self._yield_merged_tokens(chunk_bytes)
+                
+    def _yield_merged_tokens(self, word_bytes: bytes) -> Iterator[int]:
+        """Faster BPE merging using rank lookups."""
+        if word_bytes in self.vocab_reversed:
+            yield self.vocab_reversed[word_bytes]
+            return
+    
         parts = [bytes([b]) for b in word_bytes]
-        
-        # Merge if the left half and right half exist in merges
-        for pair_l, pair_r in self.merges:
-            target = pair_l + pair_r
+    
+        while len(parts) > 1:
+            # Find all possible byte pairs
+            pairs = [(parts[i], parts[i+1]) for i in range(len(parts) - 1)]
+            
+            # Find which of these pairs has the best (earliest) merge
+            # If a pair isn't in merge_ranks, we give it 'inf'
+            best_pair = min(pairs, key=lambda p: self.merge_ranks.get(p, float('inf')))
+    
+            if best_pair not in self.merge_ranks:
+                break
+    
+            # Perform the merge
             new_parts = []
             i = 0
             while i < len(parts):
-                if i < len(parts) - 1 and parts[i] == pair_l and parts[i+1] == pair_r:
-                    new_parts.append(target)
+                if i < len(parts) - 1 and (parts[i], parts[i+1]) == best_pair:
+                    new_parts.append(parts[i] + parts[i+1])
                     i += 2
                 else:
                     new_parts.append(parts[i])
                     i += 1
             parts = new_parts
-            
-        # Convert the final merged byte sequences to IDs
-        return [self.vocab_reversed[p] for p in parts]
-
-    def encode(self, text: str) -> list[int]:
-        if not text:
-            return []
-        if self.special_pat is None:
-            return self._encode_regular_text(text)
-
-        
-        ids = []
-        # Split the line on special tokens
-        parts = self.special_pat.split(text)
-        for i, part in enumerate(parts):
-            # special tokens will be on odd indicies separated by text or ""
-            if i % 2 == 1:
-                # This is a confirmed special token
-                ids.append(self.vocab_reversed[part.encode('utf-8')])
-            elif part:
-                # This is regular text
-                ids.extend(self._encode_regular_text(part))
-        return ids
-
     
-    def encode_iterable(self, iterable: Iterable[str]) -> Iterator[int]:
-        for chunk in iterable:
-            for token_id in self.encode(chunk):
-                yield token_id
-
-    def _encode_regular_text(self, text: str) -> list[int]:
-        ids = []
-        for match in self.PAT.finditer(text):
-            chunk_bytes = match.group().encode('utf-8')
-            ids.extend(self._merge_pre_token(chunk_bytes))
-        return ids
+        for p in parts:
+            yield self.vocab_reversed[p]
 
     def decode(self, ids: list[int]) -> str:
-        # Use a list of bytes to avoid frequent string concatenation
+        # List of bytes to avoid frequent string concatenation
         raw_bytes = b"".join(self.vocab[idx] for idx in ids if idx in self.vocab)
         return raw_bytes.decode('utf-8', errors='replace')
