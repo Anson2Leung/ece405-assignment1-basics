@@ -8,8 +8,10 @@ from assignment_files.tokenizer import Tokenizer
 from assignment_files.Linear import Linear
 from assignment_files.Embedding import Embedding
 from assignment_files.RMSNorm import RMSNorm
+from assignment_files.SwiGLU import SwiGLU
 import numpy.typing as npt
 import torch
+import torch.nn as nn
 from jaxtyping import Bool, Float, Int
 from torch import Tensor
 
@@ -92,7 +94,13 @@ def run_swiglu(
     # swiglu.w1.weight.data = w1_weight
     # swiglu.w2.weight.data = w2_weight
     # swiglu.w3.weight.data = w3_weight
-    raise NotImplementedError
+
+    swi = SwiGLU(d_model)
+    swi.W1.W = nn.Parameter(w1_weight)
+    swi.W2.W = nn.Parameter(w2_weight)
+    swi.W3.W = nn.Parameter(w3_weight)
+    
+    return swi(in_features)
 
 
 def run_scaled_dot_product_attention(
