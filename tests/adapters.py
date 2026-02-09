@@ -7,6 +7,7 @@ from assignment_files.bpe_tokenizer import train_bpe
 from assignment_files.tokenizer import Tokenizer
 from assignment_files.Linear import Linear
 from assignment_files.Embedding import Embedding
+from assignment_files.RMSNorm import RMSNorm
 import numpy.typing as npt
 import torch
 from jaxtyping import Bool, Float, Int
@@ -386,7 +387,10 @@ def run_rmsnorm(
         Float[Tensor,"... d_model"]: Tensor of with the same shape as `in_features` with the output of running
         RMSNorm of the `in_features`.
     """
-    raise NotImplementedError
+    
+    model = RMSNorm(d_model, eps)
+    model.load_state_dict({"g": weights})
+    return model(in_features)
 
 
 def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:

@@ -24,10 +24,5 @@ class Embedding(nn.Module):
         )
 
     def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
-        """
-        Translates token IDs into vectors using advanced indexing.
-        Input token_ids: (batch_size, sequence_length) as LongTensor
-        Output: (batch_size, sequence_length, embedding_dim)
-        """
-        # We index into the weight matrix. Each ID in token_ids acts as a row index.
+        # access the token_ids rows weights
         return self.W[token_ids]
