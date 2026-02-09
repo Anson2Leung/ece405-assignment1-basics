@@ -10,6 +10,8 @@ from assignment_files.Embedding import Embedding
 from assignment_files.RMSNorm import RMSNorm
 from assignment_files.SwiGLU import SwiGLU
 from assignment_files.RotaryPositionalEmbedding import RotaryPositionalEmbedding
+from assignment_files.Softmax import softmax, scaled_dot_product_attention
+from assignment_files.MultiHeadSelfAttention import MultiHeadSelfAttention
 import numpy.typing as npt
 import torch
 import torch.nn as nn
@@ -122,7 +124,7 @@ def run_scaled_dot_product_attention(
     Returns:
         Float[Tensor, " ... queries d_v"]: Output of SDPA
     """
-    raise NotImplementedError
+    return scaled_dot_product_attention(Q, K, V, mask=mask)
 
 
 def run_multihead_self_attention(
@@ -156,7 +158,14 @@ def run_multihead_self_attention(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    raise NotImplementedError
+    mhsa = MultiHeadSelfAttention(d_model=d_model, num_heads=num_heads)
+    
+    # combining QKV
+    combined_qkv = torch.cat([q_proj_weight, k_proj_weight, v_proj_weight], dim=0)
+    mhsa.W_qkv.W = torch.nn.Parameter(combined_qkv)
+    mhsa.W_o.W = torch.nn.Parameter(o_proj_weight)
+    
+    return mhsa(in_features, rope=None, mask=None)
 
 
 def run_multihead_self_attention_with_rope(
@@ -196,7 +205,16 @@ def run_multihead_self_attention_with_rope(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    raise NotImplementedError
+    mha = MultiHeadSelfAttention(d_model, num_heads, device=in_features.device)
+    # dk = dv = dmodel/h
+    rope = RotaryPositionalEmbedding(theta, d_model // num_heads, max_seq_len, in_features.device)
+
+    # Combine QKV
+    combined_qkv = torch.cat([q_proj_weight, k_proj_weight, v_proj_weight], dim=0)
+    mha.W_qkv.W = torch.nn.Parameter(combined_qkv)
+    mha.W_o.W = torch.nn.Parameter(o_proj_weight)
+
+    return mha(in_features, rope, token_positions)
 
 
 def run_rope(
@@ -458,7 +476,7 @@ def run_softmax(in_features: Float[Tensor, " ..."], dim: int) -> Float[Tensor, "
         Float[Tensor, "..."]: Tensor of with the same shape as `in_features` with the output of
         softmax normalizing the specified `dim`.
     """
-    raise NotImplementedError
+    return softmax(in_features, dim=dim)
 
 
 def run_cross_entropy(
