@@ -9,6 +9,7 @@ from assignment_files.Linear import Linear
 from assignment_files.Embedding import Embedding
 from assignment_files.RMSNorm import RMSNorm
 from assignment_files.SwiGLU import SwiGLU
+from assignment_files.RotaryPositionalEmbedding import RotaryPositionalEmbedding
 import numpy.typing as npt
 import torch
 import torch.nn as nn
@@ -217,7 +218,13 @@ def run_rope(
     Returns:
         Float[Tensor, " ... sequence_length d_k"]: Tensor with RoPEd input.
     """
-    raise NotImplementedError
+    rope = RotaryPositionalEmbedding(
+        theta=theta,
+        d_k=d_k,
+        max_seq_len=max_seq_len,
+        device=in_query_or_key.device
+    )
+    return rope(in_query_or_key, token_positions)
 
 
 def run_transformer_block(
