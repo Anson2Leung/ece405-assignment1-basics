@@ -5,6 +5,7 @@ from collections.abc import Iterable
 from typing import IO, Any, BinaryIO
 from assignment_files.bpe_tokenizer import train_bpe
 from assignment_files.tokenizer import Tokenizer
+from assignment_files.Linear import Linear
 import numpy.typing as npt
 import torch
 from jaxtyping import Bool, Float, Int
@@ -29,8 +30,11 @@ def run_linear(
     Returns:
         Float[Tensor, "... d_out"]: The transformed output of your linear module.
     """
+    linlayer = Linear(d_in, d_out)
 
-    raise NotImplementedError
+    # Use load_state_dict to load the weights to W
+    linlayer.load_state_dict({"W": weights})
+    return linlayer(in_features)
 
 
 def run_embedding(
