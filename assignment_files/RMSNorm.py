@@ -5,7 +5,7 @@ class RMSNorm(nn.Module):
     def __init__(self, d_model: int, eps: float = 1e-5, device=None, dtype=None):
         super().__init__()
         self.eps = eps
-        self.g = nn.Parameter(torch.ones(d_model, device=device, dtype=dtype))
+        self.weight = nn.Parameter(torch.ones(d_model, device=device, dtype=dtype))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         in_dtype = x.dtype
@@ -18,7 +18,7 @@ class RMSNorm(nn.Module):
 
         # RMSNorm
         # (a / rms(a)) * g
-        result = (x / rms) * self.g
+        result = (x / rms) * self.weight
 
         # downcast to original type
         return result.to(in_dtype)

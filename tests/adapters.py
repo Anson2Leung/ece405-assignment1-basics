@@ -12,6 +12,7 @@ from assignment_files.SwiGLU import SwiGLU
 from assignment_files.RotaryPositionalEmbedding import RotaryPositionalEmbedding
 from assignment_files.Softmax import softmax, scaled_dot_product_attention
 from assignment_files.MultiHeadSelfAttention import MultiHeadSelfAttention
+from assignment_files.TransformerBlock import TransformerBlock
 import numpy.typing as npt
 import torch
 import torch.nn as nn
@@ -98,7 +99,8 @@ def run_swiglu(
     # swiglu.w2.weight.data = w2_weight
     # swiglu.w3.weight.data = w3_weight
 
-    swi = SwiGLU(d_model)
+    swi = SwiGLU(d_model, d_ff=d_ff, device=in_features.device)
+    
     swi.W1.W = nn.Parameter(w1_weight)
     swi.W2.W = nn.Parameter(w2_weight)
     swi.W3.W = nn.Parameter(w3_weight)
@@ -315,7 +317,29 @@ def run_transformer_block(
         Float[Tensor, "batch sequence_length d_model"] Tensor with the output of
         running the Transformer block on the input features while using RoPE.
     """
-    raise NotImplementedError
+    # Initialize TransformerBlock and RoPE
+    block = TransformerBlock(d_model, num_heads, d_ff, device=in_features.device)
+    rope = RotaryPositionalEmbedding(theta, d_model // num_heads, max_seq_len, in_features.device)
+    
+    # Prepare MHSA
+    block.attn.W_qkv.W = torch.nn.Parameter(torch.cat([weights["attn.q_proj.weight"], weights["attn.k_proj.weight"], weights["attn.v_proj.weight"]], dim=0))
+    block.attn.W_o.W = torch.nn.Parameter(weights["attn.output_proj.weight"])
+    
+    # Map RMSNorm Weights
+    block.norm_1.weight = torch.nn.Parameter(weights["ln1.weight"])
+    block.norm_2.weight = torch.nn.Parameter(weights["ln2.weight"])
+    
+    # Map SwiGLU Weights
+    # Reference keys ffn.w1, w2, w3 typically map to gate, down, and up projections
+    block.ffn.W1.W = torch.nn.Parameter(weights["ffn.w1.weight"])
+    block.ffn.W3.W = torch.nn.Parameter(weights["ffn.w3.weight"])
+    block.ffn.W2.W = torch.nn.Parameter(weights["ffn.w2.weight"])
+
+    # Triu is wrong side
+    seq_len = in_features.shape[1]
+    mask = torch.tril(torch.ones(seq_len, seq_len, device=in_features.device, dtype=torch.bool))
+    
+    return block(in_features, rope=rope, mask=mask)
 
 
 def run_transformer_lm(
@@ -422,7 +446,7 @@ def run_rmsnorm(
     """
     
     model = RMSNorm(d_model, eps)
-    model.load_state_dict({"g": weights})
+    model.load_state_dict({"weight": weights})
     return model(in_features)
 
 

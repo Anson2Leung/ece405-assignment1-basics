@@ -18,7 +18,7 @@ class Linear(nn.Module):
         ))
 
         # µ = 0, σ^2 =2/(din+dout ) truncated at [−3σ, 3σ]
-        sigma = np.sqrt((2/in_features+out_features))
+        sigma = np.sqrt(2/(in_features+out_features))
 
         # use the settings from above along with torch.nn.init.trunc_normal_ to initialize the weights.
         nn.init.trunc_normal_(
@@ -32,4 +32,8 @@ class Linear(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # y = Wx.
         #return einsum(x, self.W, "batch sequence d_in, d_out d_in -> batch sequence d_out")
-        return einsum(x, self.W, "... d_in, d_out d_in -> ... d_out")
+        if self.W.shape == (self.out_features, self.in_features):
+            return einsum(x, self.W, "... d_in, d_out d_in -> ... d_out")
+        # If the weight shape is (in, out)
+        else:
+            return einsum(x, self.W, "... d_in, d_in d_out -> ... d_out")

@@ -29,7 +29,7 @@ def scaled_dot_product_attention(
     # Apply mask, mask=False means "do not attend"
     # add -infinity of mask matrix that is False
     if mask is not None:
-        scores = scores.masked_fill(mask == False, float('-inf'))
+        scores = scores.masked_fill(mask == 0, float("-inf"))
 
     attention_weights = softmax(scores, dim=-1)
 

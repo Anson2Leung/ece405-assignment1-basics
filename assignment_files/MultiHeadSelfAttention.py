@@ -6,6 +6,10 @@ from .Softmax import scaled_dot_product_attention
 
 class MultiHeadSelfAttention(nn.Module):
     def __init__(self, d_model: int, num_heads: int, device=None):
+        """
+        d_model: int Dimensionality of the Transformer block inputs.
+        num_heads: int Number of heads to use in multi-head self-attention.
+        """
         super().__init__()
         self.d_model = d_model
         self.num_heads = num_heads
@@ -34,7 +38,7 @@ class MultiHeadSelfAttention(nn.Module):
         # Apply RoPE if provided
         if rope is not None:
             if token_positions is None:
-                token_positions = torch.arange(seq_len, device=x.device).unsqueeze(0)
+                token_positions = torch.arange(seq_len, device=x.device)
             
             Q = rope(Q, token_positions)
             K = rope(K, token_positions)
