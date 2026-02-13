@@ -13,6 +13,7 @@ from assignment_files.RotaryPositionalEmbedding import RotaryPositionalEmbedding
 from assignment_files.Softmax import softmax, scaled_dot_product_attention
 from assignment_files.MultiHeadSelfAttention import MultiHeadSelfAttention
 from assignment_files.TransformerBlock import TransformerBlock
+from assignment_files.TransformerLM import TransformerLM
 import numpy.typing as npt
 import torch
 import torch.nn as nn
@@ -319,7 +320,7 @@ def run_transformer_block(
     """
     # Initialize TransformerBlock and RoPE
     block = TransformerBlock(d_model, num_heads, d_ff, device=in_features.device)
-    rope = RotaryPositionalEmbedding(theta, d_model // num_heads, max_seq_len, in_features.device)
+    rope = RotaryPositionalEmbedding(theta=theta, d_k=d_model // num_heads, max_seq_len=max_seq_len, device=in_features.device)
     
     # Prepare MHSA
     block.attn.W_qkv.W = torch.nn.Parameter(torch.cat([weights["attn.q_proj.weight"], weights["attn.k_proj.weight"], weights["attn.v_proj.weight"]], dim=0))
@@ -338,8 +339,10 @@ def run_transformer_block(
     # Triu is wrong side
     seq_len = in_features.shape[1]
     mask = torch.tril(torch.ones(seq_len, seq_len, device=in_features.device, dtype=torch.bool))
-    
-    return block(in_features, rope=rope, mask=mask)
+
+    #sequence positions
+    token_positions = torch.arange(seq_len, device=in_features.device)
+    return block(in_features, rope=rope, mask=mask, token_positions = token_positions)
 
 
 def run_transformer_lm(
@@ -421,7 +424,57 @@ def run_transformer_lm(
         Float[Tensor, "batch_size sequence_length vocab_size"]: Tensor with the predicted unnormalized
         next-word distribution for each token.
     """
-    raise NotImplementedError
+   # 1. Initialize the Model
+    model = TransformerLM(
+        vocab_size=vocab_size,
+        context_length=context_length,
+        d_model=d_model,
+        num_layers=num_layers,
+        num_heads=num_heads,
+        d_ff=d_ff,
+        theta=rope_theta,
+        device=in_indices.device
+    )
+
+    # 2. Map Token Embeddings
+    model.token_embeddings.weight = torch.nn.Parameter(weights["token_embeddings.weight"])
+
+    # 3. Map Layers (Iterate through the stack)
+    for i in range(num_layers):
+        layer = model.layers[i]
+        prefix = f"layers.{i}"
+
+        # --- Attention Weights ---
+        # Combine Q, K, V into the single W_qkv layer
+        # Your MHSA implementation uses one Linear layer for all three.
+        # We concatenate along dim=0 to get shape (3 * d_model, d_model)
+        q = weights[f"{prefix}.attn.q_proj.weight"]
+        k = weights[f"{prefix}.attn.k_proj.weight"]
+        v = weights[f"{prefix}.attn.v_proj.weight"]
+        
+        layer.attn.W_qkv.W = torch.nn.Parameter(torch.cat([q, k, v], dim=0))
+        
+        # Output projection
+        layer.attn.W_o.W = torch.nn.Parameter(weights[f"{prefix}.attn.output_proj.weight"])
+
+        # --- RMSNorm Weights ---
+        # We use .weight here because we renamed self.g to self.weight in previous steps
+        layer.norm_1.weight = torch.nn.Parameter(weights[f"{prefix}.ln1.weight"])
+        layer.norm_2.weight = torch.nn.Parameter(weights[f"{prefix}.ln2.weight"])
+
+        # --- FFN (SwiGLU) Weights ---
+        # Note: Your updated Linear class handles the shape mismatch for w1/w3 automatically.
+        layer.ffn.W1.W = torch.nn.Parameter(weights[f"{prefix}.ffn.w1.weight"])
+        layer.ffn.W2.W = torch.nn.Parameter(weights[f"{prefix}.ffn.w2.weight"])
+        layer.ffn.W3.W = torch.nn.Parameter(weights[f"{prefix}.ffn.w3.weight"])
+
+    # 4. Map Final Output Layers
+    model.final_norm.weight = torch.nn.Parameter(weights["ln_final.weight"])
+    model.output_layer.W = torch.nn.Parameter(weights["lm_head.weight"])
+
+    # 5. Run Forward Pass
+    # We do not pass token_positions here; the model generates them internally based on input shape.
+    return model(in_indices)
 
 
 def run_rmsnorm(

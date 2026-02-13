@@ -7,7 +7,7 @@ class SwiGLU(nn.Module):
     def __init__(self, d_model: int, d_ff: int = None, device=None, dtype=None):
         super().__init__()
         
-        # 1. Calculate d_ff if not provided, ensuring multiple of 64
+        # Calculate d_ff if not provided, ensuring multiple of 64
         if d_ff is None:
             d_ff = int(8/3 * d_model)
             d_ff = 64 * ((d_ff + 32) // 64)

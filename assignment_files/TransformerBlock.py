@@ -5,7 +5,13 @@ from .SwiGLU import SwiGLU
 from .RMSNorm import RMSNorm
 
 class TransformerBlock(nn.Module):
-    def __init__(self, d_model: int, num_heads: int, d_ff: int, device=None):
+    def __init__(
+        self, 
+        d_model: int, 
+        num_heads: int, 
+        d_ff: int, 
+        device=None
+    ):
         """
         d_model: int Dimensionality of the Transformer block inputs.
         num_heads: int Number of heads to use in multi-head self-attention.
@@ -20,10 +26,10 @@ class TransformerBlock(nn.Module):
         self.norm_2 = RMSNorm(d_model, device=device)
         self.ffn = SwiGLU(d_model, d_ff=d_ff, device=device)
 
-    def forward(self, x: torch.Tensor, rope: nn.Module, mask: torch.Tensor = None) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, rope: nn.Module, token_positions: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
         # y = x + MultiHeadSelfAttention(RMSNorm(x))
         # y = x + FFN(RMSNorm(x))
-        y = x + self.attn(self.norm_1(x), rope=rope, mask=mask)
+        y = x + self.attn(self.norm_1(x), rope=rope, mask=mask, token_positions=token_positions)
         z = y + self.ffn(self.norm_2(y))
         
         return z
