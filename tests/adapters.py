@@ -14,6 +14,8 @@ from assignment_files.Softmax import softmax, scaled_dot_product_attention
 from assignment_files.MultiHeadSelfAttention import MultiHeadSelfAttention
 from assignment_files.TransformerBlock import TransformerBlock
 from assignment_files.TransformerLM import TransformerLM
+from assignment_files.CrossEntropy import cross_entropy
+from assignment_files.AdamW import AdamW
 import numpy.typing as npt
 import torch
 import torch.nn as nn
@@ -571,7 +573,9 @@ def run_cross_entropy(
     Returns:
         Float[Tensor, ""]: The average cross-entropy loss across examples.
     """
-    raise NotImplementedError
+
+    elementwise_loss = cross_entropy(inputs, targets)
+    return elementwise_loss.mean()
 
 
 def run_gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm: float) -> None:
@@ -590,7 +594,7 @@ def get_adamw_cls() -> Any:
     """
     Returns a torch.optim.Optimizer that implements AdamW.
     """
-    raise NotImplementedError
+    return AdamW
 
 
 def run_get_lr_cosine_schedule(
