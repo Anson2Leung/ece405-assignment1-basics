@@ -67,8 +67,8 @@ class AdamW(Optimizer):
                 # Update Parameters
                 #  θ − α_t * m/√v+ϵ
                 # √v+ϵ = sqrt(v) + eps
-                # theta + (-a_t * (m / denom))
                 denom = v.sqrt().add_(eps)
+                # theta + (-a_t * (m / denom))
                 theta.data.addcdiv_(m, denom, value=-alpha_t)
                 
                 # Apply Weight Decay (Decoupled)
