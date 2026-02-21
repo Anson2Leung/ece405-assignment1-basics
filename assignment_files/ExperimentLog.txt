@@ -1,0 +1,22 @@
+Tiny Stories 7.2
+Utilizing max steps of 5000, to reduce time in finding a good LR, adjusted warm up steps to be 1/10th of max steps.
+Testing with LRs 3e-5 1e-4 3e-4 6e-4 1e-3
+Some had errors, 2nd round of tests lowered LRs 9e-4 1e-3 5e-3 1e-2
+
+Tiny Stories 7.2 batch sweep
+Tried to do a batch sweep of 32 64 128 258
+Then did a 1 8 16 48
+batch sizes of 64+ had errors due to memory limitations on ece405 partition
+
+OWT
+Small sweep over a few LRs before utilizing 1e-3 for the 10k iterations
+Sweeped over:
+3e-4: val/loss:5.102694702148438
+6e-4: val/loss:4.845708513259888
+1e-3: val/loss:4.752266788482666
+3e-3: val/loss:5.666153359413147
+5e-3: val/loss:4.875535249710083
+8e-3: val/loss:5.25123085975647
+
+
+Would have perfered to run more tests, but when running on ece405 partiton runs of 5000 steps and 80 batch size take ~40-50 minutes.

@@ -18,6 +18,8 @@ from assignment_files.CrossEntropy import cross_entropy
 from assignment_files.AdamW import AdamW
 from assignment_files.LearningRate import lr_cosine_schedule
 from assignment_files.GradientClipping import gradient_clipping
+from assignment_files.DataLoader import get_batch
+from assignment_files.Checkpoint import save_checkpoint, load_checkpoint
 import numpy.typing as npt
 import torch
 import torch.nn as nn
@@ -541,7 +543,7 @@ def run_get_batch(
         is the sampled input sequences, and the second tuple item is the corresponding
         language modeling labels.
     """
-    raise NotImplementedError
+    return get_batch(dataset,batch_size, context_length, device)
 
 
 def run_softmax(in_features: Float[Tensor, " ..."], dim: int) -> Float[Tensor, " ..."]:
@@ -643,7 +645,7 @@ def run_save_checkpoint(
             we've completed.
         out (str | os.PathLike | BinaryIO | IO[bytes]): Path or file-like object to serialize the model, optimizer, and iteration to.
     """
-    raise NotImplementedError
+    save_checkpoint(model, optimizer, iteration, out)
 
 
 def run_load_checkpoint(
@@ -664,7 +666,7 @@ def run_load_checkpoint(
     Returns:
         int: the previously-serialized number of iterations.
     """
-    raise NotImplementedError
+    return load_checkpoint(src, model, optimizer)
 
 
 def get_tokenizer(
